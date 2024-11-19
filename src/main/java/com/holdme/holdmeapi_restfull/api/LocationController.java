@@ -17,7 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/admin/location")
 @RestController
-@PreAuthorize("hasRole('CUSTOMER')") // Aplicar la restriccion a nivel de clase
+@PreAuthorize("hasRole('ADMIN')") // Aplicar la restriccion a nivel de clase
 
 public class LocationController {
     private final LocationService locationService;

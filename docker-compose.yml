@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:13
+    container_name: holdmedb
+    environment:
+      POSTGRES_DB: holdmedb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: holdme-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/holdmedb
+      SPRING_DATASOURCE_USERNAME: user
+      SPRING_DATASOURCE_PASSWORD: password
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    volumes:
+      - ./target/holdme-api-0.0.1-SNAPSHOT.jar:/app.jar
+    command: ["java", "-jar", "/app.jar"]
+
+volumes:
+  postgres-data:
+

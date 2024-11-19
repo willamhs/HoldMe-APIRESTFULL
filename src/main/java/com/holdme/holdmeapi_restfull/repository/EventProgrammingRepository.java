@@ -13,7 +13,7 @@ import java.util.List;
 public interface EventProgrammingRepository extends JpaRepository<EventProgramming, EventProgrammingPK> {
     List<EventProgramming> findByEvent(Event event);
     List<EventProgramming> findBySchedule(Schedule schedule);
-    @Query(value = "SELECT * FROM get_user_event_programming(:studentId)", nativeQuery = true)
-    List<Object[]> getUserEventProgramming(@Param("studentId")Integer studentId);
+    @Query(value = "SELECT * FROM get_user_event_programming(:customerId)", nativeQuery = true)
+    List<Object[]> getUserEventProgramming(@Param("customerId")Integer customerId);
 
 }

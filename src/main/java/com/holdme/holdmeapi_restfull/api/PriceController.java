@@ -30,8 +30,8 @@ public class PriceController {
     }
 
     @GetMapping("/page")
-    public ResponseEntity<Page<PriceDTO>> paginate(@PageableDefault(size = 5, sort = "precio")
-                                                       Pageable pageable) {
+    public ResponseEntity<Page<PriceDTO>> paginate(@PageableDefault(size = 5, sort = "price")
+                                                   Pageable pageable) {
         Page<PriceDTO> price = priceService.paginate(pageable);
         return new ResponseEntity<>(price, HttpStatus.OK);
     }

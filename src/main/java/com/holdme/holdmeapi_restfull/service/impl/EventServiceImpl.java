@@ -1,5 +1,6 @@
 package com.holdme.holdmeapi_restfull.service.impl;
 
+import com.holdme.holdmeapi_restfull.dto.AdminEventSalesReportDTO;
 import com.holdme.holdmeapi_restfull.dto.EventCreateUpdateDTO;
 import com.holdme.holdmeapi_restfull.dto.EventDetailsDTO;
 import com.holdme.holdmeapi_restfull.dto.FilteredEventsDTO;
@@ -16,11 +17,14 @@ import com.holdme.holdmeapi_restfull.repository.PriceRepository;
 import com.holdme.holdmeapi_restfull.repository.LocationRepository;
 import com.holdme.holdmeapi_restfull.service.EventService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +43,13 @@ public class EventServiceImpl implements EventService {
         return events.stream()
                 .map(eventMapper::toDetailsDTO)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public Page<EventDetailsDTO> paginate(Pageable pageable) {
+        Page<Event> events = eventRepository.findAll(pageable);
+        return events.map(eventMapper::toDetailsDTO);
     }
 
     @Transactional(readOnly = true)
@@ -86,10 +97,10 @@ public class EventServiceImpl implements EventService {
                 .orElseThrow(() -> new ResourceNotFoundException("Categoria not found with id: " + eventCreateUpdateDTO.getCategoryId()));
 
         Location location = locationRepository.findById(eventCreateUpdateDTO.getLocationId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Ubicacion not found with id: " + eventCreateUpdateDTO.getLocationId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Ubicacion not found with id: " + eventCreateUpdateDTO.getLocationId()));
 
         Price price = priceRepository.findById(eventCreateUpdateDTO.getPriceId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Tarifario not found with id: " + eventCreateUpdateDTO.getPriceId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Tarifario not found with id: " + eventCreateUpdateDTO.getPriceId()));
 
         Event event = eventMapper.toEntity(eventCreateUpdateDTO);
 
@@ -150,6 +161,20 @@ public class EventServiceImpl implements EventService {
                 .stream()
                 .map(eventMapper::toDetailsDTO)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AdminEventSalesReportDTO> getAdminEventSalesReport() {
+        List<Object[]> results = eventRepository.getAdminEventSalesReport();
+
+        // Mapea cada Object[] a un PurchaseReportDTO
+        return results.stream().map(result ->
+                new AdminEventSalesReportDTO(
+                        (String) result[0],
+                        ((Integer) result[1]).intValue()
+                )
+        ).collect(Collectors.toList());
     }
 
 }

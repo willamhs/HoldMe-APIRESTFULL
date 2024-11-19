@@ -71,7 +71,7 @@ public class EventProgrammingServiceImpl implements EventProgrammingService {
             return eventProgrammingMapper.toDTO(updated);
         } else {
             throw new RuntimeException("EventProgramming not found with the given eventId and scheduleId.");
-}
+        }
     }
 
     @Override

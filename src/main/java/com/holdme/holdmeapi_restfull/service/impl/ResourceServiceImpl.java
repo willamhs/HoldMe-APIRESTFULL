@@ -1,74 +1,113 @@
 package com.holdme.holdmeapi_restfull.service.impl;
 
-import com.holdme.holdmeapi_restfull.dto.ResourceDTO;
+import com.holdme.holdmeapi_restfull.dto.ResourceCreateUpdateDTO;
+import com.holdme.holdmeapi_restfull.dto.ResourceDetailsDTO;
+import com.holdme.holdmeapi_restfull.exception.BadRequestException;
 import com.holdme.holdmeapi_restfull.exception.ResourceNotFoundException;
-import com.holdme.holdmeapi_restfull.model.entity.Resource;
+import com.holdme.holdmeapi_restfull.mapper.ResourceMapper;
+import com.holdme.holdmeapi_restfull.model.entity.*;
+import com.holdme.holdmeapi_restfull.model.enums.ResourceCategory;
+import com.holdme.holdmeapi_restfull.model.enums.ResourceType;
 import com.holdme.holdmeapi_restfull.repository.ResourceRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.holdme.holdmeapi_restfull.service.ResourceService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.List;
 @Service
-public class ResourceServiceImpl {
+@RequiredArgsConstructor
+public class ResourceServiceImpl implements ResourceService {
 
     private final ResourceRepository resourceRepository;
+    private final ResourceMapper resourceMapper;
+    private final FileSystemStorageService fileSystemStorageService;
 
-    @Autowired
-    public ResourceServiceImpl(ResourceRepository resourceRepository) {
-        this.resourceRepository = resourceRepository;
+    @Transactional(readOnly = true)
+    @Override
+    public List<ResourceDetailsDTO> findAll() {
+        List<Resource> resources = resourceRepository.findAll();
+        return resources.stream()
+                .map(resourceMapper::toDetailsDTO)
+                .toList();
     }
 
-    public List<Resource> getAllResources() {
-        return resourceRepository.findAll();
+    @Transactional(readOnly = true)
+    @Override
+    public ResourceDetailsDTO findById(Integer id) {
+        Resource resource = resourceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Recurso no encontrado con id: " + id));
+
+        return resourceMapper.toDetailsDTO(resource);
     }
 
-    public Resource getResourceById(Long id) {
-        return resourceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Resource not found with id: " + id));
+    @Transactional
+    @Override
+    public ResourceDetailsDTO create(ResourceCreateUpdateDTO resourceCreateUpdateDTO) {
+        resourceRepository.findByTitle(resourceCreateUpdateDTO.getTitle())
+                .ifPresent(event -> {
+                    throw new BadRequestException("El recurso ya existe");
+                });
+
+        Resource resource = resourceMapper.toEntity(resourceCreateUpdateDTO);
+
+        resource.setCreatedAt(LocalDateTime.now());
+
+        return resourceMapper.toDetailsDTO(resourceRepository.save(resource));
     }
 
-    public Resource createResource(ResourceDTO resourceDTO) {
-        if (resourceRepository.findByTitle(resourceDTO.getTitle()).isPresent()) {
-            throw new IllegalArgumentException("Resource with the same title already exists");
+    @Transactional
+    @Override
+    public ResourceDetailsDTO update(Integer id, ResourceCreateUpdateDTO updateResourceDTO) {
+        Resource resourceFromDB = resourceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Recurso no encontrado con id: " + id));
+
+        resourceRepository.findByTitle(updateResourceDTO.getTitle())
+                .ifPresent(resource -> {
+                    throw new BadRequestException("El recurso ya existe");
+                });
+
+        resourceFromDB.setTitle(updateResourceDTO.getTitle());
+        resourceFromDB.setDescription(updateResourceDTO.getDescription());
+        resourceFromDB.setUpdatedAt(LocalDateTime.now());
+        resourceFromDB.setFilePath(updateResourceDTO.getFilePath());
+        resourceFromDB.setCategory(updateResourceDTO.getCategory());
+        resourceFromDB.setUrl(updateResourceDTO.getUrl());
+        resourceFromDB.setType(updateResourceDTO.getType());
+        resourceFromDB.setCreatedAt(LocalDateTime.now());
+
+        return resourceMapper.toDetailsDTO(resourceRepository.save(resourceFromDB));
+    }
+
+    @Transactional
+    @Override
+    public void delete(Integer id) {
+        Resource resource = resourceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Recurso no encontrado con id: " + id));
+
+        try {
+            fileSystemStorageService.delete(resource.getTitle());
+        } catch (Exception e) {
+            throw new RuntimeException("No se pudo eliminar el archivo", e);
         }
 
-        Resource resource = new Resource();
-        resource.setTitle(resourceDTO.getTitle());
-        resource.setUrl(resourceDTO.getUrl());
-        resource.setType(resourceDTO.getType());
-        resource.setCategory(resourceDTO.getCategory());
-        resource.setDescription(resourceDTO.getDescription());
-        return resourceRepository.save(resource);
-    }
-
-
-    public void deleteResource(Long id) {
-        Resource resource = getResourceById(id);
         resourceRepository.delete(resource);
     }
 
-    public Resource save(Resource resource) {
-        return resourceRepository.save(resource);
+    @Transactional(readOnly = true)
+    @Override
+    public List<ResourceDetailsDTO> getResourcesFiltered(String titulo, ResourceCategory categoria, ResourceType tipo) {
+        // Si 'categoria' o 'tipo' no son nulos, asigna el valor correspondiente del enum. De lo contrario, asigna null.
+        ResourceCategory categoriaEnum = categoria != null ? categoria : null;
+        ResourceType tipoEnum = tipo != null ? tipo : null;
+
+        // Llamada al repositorio pasando los parámetros ya convertidos a enum (si es necesario).
+        List<Resource> resources = resourceRepository.getResourcesFiltered(titulo, categoriaEnum, tipoEnum);
+
+        // Mapea los resultados a DTOs y devuélvelos.
+        return resources.stream()
+                .map(resourceMapper::toDetailsDTO)
+                .toList();
     }
-
-    public Resource updateResource(Long id, ResourceDTO resourceDTO) {
-        // Buscar el recurso existente
-        Resource existingResource = resourceRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Recurso no encontrado"));
-
-        // Actualizar los campos del recurso
-        existingResource.setTitle(resourceDTO.getTitle());
-        existingResource.setCategory(resourceDTO.getCategory());
-        existingResource.setDescription(resourceDTO.getDescription());
-        existingResource.setType(resourceDTO.getType());
-        existingResource.setUrl(resourceDTO.getUrl());  // Actualiza la URL del archivo (si hay uno nuevo)
-
-        // Guardar el recurso actualizado
-        return resourceRepository.save(existingResource);
-    }
-
 }

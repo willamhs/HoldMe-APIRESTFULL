@@ -1,134 +1,98 @@
 package com.holdme.holdmeapi_restfull.api;
 
-import com.holdme.holdmeapi_restfull.dto.ResourceDTO;
-import com.holdme.holdmeapi_restfull.model.entity.Resource;
-import com.holdme.holdmeapi_restfull.service.impl.FileSystemStorageService;
-import com.holdme.holdmeapi_restfull.service.impl.ResourceServiceImpl;
-import io.jsonwebtoken.io.IOException;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.holdme.holdmeapi_restfull.dto.CommentDTO;
+import com.holdme.holdmeapi_restfull.dto.ResourceCreateUpdateDTO;
+import com.holdme.holdmeapi_restfull.dto.ResourceDetailsDTO;
+import com.holdme.holdmeapi_restfull.model.enums.ResourceCategory;
+import com.holdme.holdmeapi_restfull.model.enums.ResourceType;
+import com.holdme.holdmeapi_restfull.service.ResourceService;
+import com.holdme.holdmeapi_restfull.service.impl.CommentServiceImpl;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/resources")
 public class ResourceController {
-    private final ResourceServiceImpl resourceService;
-    private final FileSystemStorageService fileSystemStorageService;
 
-    @Autowired
-    public ResourceController(ResourceServiceImpl resourceService, FileSystemStorageService fileSystemStorageService) {
-        this.resourceService = resourceService;
-        this.fileSystemStorageService = fileSystemStorageService;
-    }
+    private final ResourceService resourceService;
+    private final CommentServiceImpl commentService;
 
     // Obtener todos los recursos
     @GetMapping
-    public List<Resource> getAllResources() {
-        return resourceService.getAllResources();
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    public ResponseEntity<List<ResourceDetailsDTO>> getAllResources() {
+        List<ResourceDetailsDTO> resources = resourceService.findAll();
+        return ResponseEntity.ok(resources);
     }
 
-    // Obtener recurso por ID
+    // Obtener un recurso por ID
     @GetMapping("/{id}")
-    public ResponseEntity<Resource> getResourceById(@PathVariable Long id) {
-        Resource resource = resourceService.getResourceById(id);
-        return ResponseEntity.ok(resource);
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    public ResponseEntity<ResourceDetailsDTO> getResourceById(@PathVariable Integer id) {
+        ResourceDetailsDTO resourceDetailsDTO = resourceService.findById(id);
+        return ResponseEntity.ok(resourceDetailsDTO);
     }
 
-    // Crear nuevo recurso
+    // Crear un nuevo recurso
     @PostMapping
-    public ResponseEntity<Resource> createResource(@RequestParam(required = false) MultipartFile file, @RequestBody ResourceDTO resourceDTO) {
-        // Si se ha proporcionado un archivo, guardarlo
-        String fileUrl = null;
-        if (file != null && !file.isEmpty()) {
-            // Guardar el archivo y obtener el nombre de archivo generado
-            fileUrl = fileSystemStorageService.store(file); // Usamos el servicio de almacenamiento
-        }
-
-        // Si el archivo fue cargado, se establece la URL del archivo en el DTO
-        resourceDTO.setUrl(fileUrl);
-
-        // Crear el nuevo recurso usando el DTO
-        Resource newResource = resourceService.createResource(resourceDTO);
-
-        // Retornar el recurso recién creado
-        return ResponseEntity.status(HttpStatus.CREATED).body(newResource);
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResourceDetailsDTO> createResource(@Valid @RequestBody ResourceCreateUpdateDTO resourceCreateUpdateDTO) {
+        ResourceDetailsDTO createdResource = resourceService.create(resourceCreateUpdateDTO);
+        return new ResponseEntity<>(createdResource, HttpStatus.CREATED);
     }
 
-    // Actualizar recurso por ID, incluyendo archivo
+    // Actualizar un recurso existente
     @PutMapping("/{id}")
-    public ResponseEntity<Resource> updateResource(
-            @PathVariable Long id,
-            @RequestParam(required = false) MultipartFile file,
-            @RequestParam String title,
-            @RequestParam String url,
-            @RequestParam String type,
-            @RequestParam String category,
-            @RequestParam String description) {
-
-        // Obtener el recurso existente
-        Resource existingResource = resourceService.getResourceById(id);
-
-        // Crear DTO con los parámetros recibidos
-        ResourceDTO resourceDTO = new ResourceDTO(title, url, type, category, description);
-
-        // Si se ha proporcionado un nuevo archivo, actualizarlo
-        if (file != null && !file.isEmpty()) {
-            // Guardar el archivo y obtener la nueva URL
-            String fileName = fileSystemStorageService.store(file); // Guardar el archivo
-            resourceDTO.setUrl(fileName); // Establecer la URL del archivo
-        } else {
-            // Mantener la URL actual si no se proporciona un archivo
-            resourceDTO.setUrl(existingResource.getUrl());
-        }
-
-        // Actualizar el recurso con los datos del DTO
-        Resource updatedResource = resourceService.updateResource(id, resourceDTO);
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ResourceDetailsDTO> updateResource(@PathVariable Integer id, @Valid @RequestBody ResourceCreateUpdateDTO resourceCreateUpdateDTO) {
+        ResourceDetailsDTO updatedResource = resourceService.update(id, resourceCreateUpdateDTO);
         return ResponseEntity.ok(updatedResource);
     }
 
-    // Eliminar recurso por ID
+    // Eliminar un recurso
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteResource(@PathVariable Long id) {
-        resourceService.deleteResource(id);
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteResource(@PathVariable Integer id) {
+        resourceService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
-
-    // Subir archivo para un recurso
-    @PostMapping("/upload")
-    public ResponseEntity<Resource> uploadResource(
-            @RequestParam("title") String title,
-            @RequestParam("url") String url,
-            @RequestParam("type") String type,
-            @RequestParam("category") String category,
-            @RequestParam("description") String description,
-            @RequestParam("file") MultipartFile file) {
-
-        try {
-            // Guardar archivo y obtener ruta
-            String filePath = fileSystemStorageService.store(file);
-
-            // Crear recurso
-            ResourceDTO resourceDTO = new ResourceDTO(title, url, type, category, description);
-            Resource newResource = resourceService.createResource(resourceDTO);
-
-            // Asignar ruta del archivo y guardar
-            newResource.setFilePath(filePath);
-            resourceService.save(newResource);
-
-            return ResponseEntity.ok(newResource);
-        } catch (IOException e) {
-            // Loguea el error para depuración
-            e.printStackTrace();
-
-            // Retornar una respuesta con el mensaje de error
-            return ResponseEntity.status(500).body(null);
-        }
+    // Filtrar recursos por título, categoría y tipo
+    @GetMapping("/filter")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    public ResponseEntity<List<ResourceDetailsDTO>> getResourcesFiltered(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) ResourceCategory category,
+            @RequestParam(required = false) ResourceType type) {
+        List<ResourceDetailsDTO> filteredResources = resourceService.getResourcesFiltered(title, category, type);
+        return ResponseEntity.ok(filteredResources);
     }
 
+    //Estas endpoints son para los comentarios
 
+    // Agregar un comentario a un recurso
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @PostMapping("/{resourceId}/comments")
+    public ResponseEntity<CommentDTO> addComment(
+            @PathVariable Integer resourceId,
+            @RequestParam Integer userId, // ID del usuario
+            @RequestParam String content) { // Contenido del comentario
+        CommentDTO commentDTO = commentService.addComment(resourceId, userId, content);
+        return ResponseEntity.ok(commentDTO);
+    }
+
+    // Obtener comentarios de un recurso
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @GetMapping("/{resourceId}/comments")
+    public ResponseEntity<List<CommentDTO>> getComments(@PathVariable Integer resourceId) {
+        List<CommentDTO> comments = commentService.getCommentsByResource(resourceId);
+        return ResponseEntity.ok(comments);
+    }
 }

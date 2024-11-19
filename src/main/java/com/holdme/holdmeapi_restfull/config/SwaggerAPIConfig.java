@@ -13,7 +13,7 @@ import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.servers.Server;
 import java.util.List;
 
-//http://localhost:8081/api/v1/swagger-ui/index.html
+//http://localhost:8080/api/v1/swagger-ui/index.html
 @Configuration
 public class SwaggerAPIConfig {
     @Value("${campussphere.openapi.dev-url}")

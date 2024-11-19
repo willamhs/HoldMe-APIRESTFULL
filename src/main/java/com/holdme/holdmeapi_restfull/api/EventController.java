@@ -1,13 +1,13 @@
 package com.holdme.holdmeapi_restfull.api;
 
-import com.holdme.holdmeapi_restfull.dto.EventCreateUpdateDTO;
-import com.holdme.holdmeapi_restfull.dto.EventDetailsDTO;
-import com.holdme.holdmeapi_restfull.dto.EventFilterDTO;
-import com.holdme.holdmeapi_restfull.dto.FilteredEventsDTO;
+import com.holdme.holdmeapi_restfull.dto.*;
 import com.holdme.holdmeapi_restfull.model.entity.Event;
 import com.holdme.holdmeapi_restfull.service.EventService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,27 +25,22 @@ public class EventController {
 
     private final EventService eventService;
 
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CUSTOMER')")
     @GetMapping
     public ResponseEntity<List<EventDetailsDTO>> list(){
         List<EventDetailsDTO> events = eventService.findAll();
         return new ResponseEntity<>(events, HttpStatus.OK);
     }
 
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
-    @PostMapping("/filtered")
-    public ResponseEntity<List<FilteredEventsDTO>> getFilteredEvents(@RequestBody EventFilterDTO filterDTO) {
-        // Llamar al servicio pasando los valores desde el DTO
-        List<FilteredEventsDTO> filteredEvents = eventService.getEventsFiltered(
-                filterDTO.getPrecioMin(),
-                filterDTO.getPrecioMax(),
-                filterDTO.getCategoriaName(),
-                filterDTO.getUbicacion()
-        );
-        return new ResponseEntity<>(filteredEvents, HttpStatus.OK);
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/page")
+    public ResponseEntity<Page<EventDetailsDTO>> paginate(
+            @PageableDefault(size = 10, sort = "name") Pageable pageable) {
+        Page<EventDetailsDTO> events = eventService.paginate(pageable);
+        return new ResponseEntity<>(events, HttpStatus.OK);
     }
 
-    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','CUSTOMER')")
     @GetMapping("/{id}")
     public ResponseEntity<EventDetailsDTO> search(@PathVariable("id") Integer id){
         EventDetailsDTO event = eventService.findById(id);
@@ -62,7 +57,7 @@ public class EventController {
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<EventDetailsDTO> update(@PathVariable("id") Integer id,
-                                                @Valid @RequestBody EventCreateUpdateDTO event){
+                                                  @Valid @RequestBody EventCreateUpdateDTO event){
         EventDetailsDTO updateEvent = eventService.update(id, event);
         return new ResponseEntity<>(updateEvent, HttpStatus.OK);
     }
@@ -73,5 +68,13 @@ public class EventController {
         eventService.delete(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/sales-report")
+    public ResponseEntity<List<AdminEventSalesReportDTO>> getAdminEventSalesReport() {
+        List<AdminEventSalesReportDTO> report = eventService.getAdminEventSalesReport();
+        return ResponseEntity.ok(report);
+    }
+
 }
 

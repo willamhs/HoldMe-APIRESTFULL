@@ -1,7 +1,12 @@
 package com.holdme.holdmeapi_restfull.model.entity;
 
+import com.holdme.holdmeapi_restfull.model.enums.ResourceCategory;
+import com.holdme.holdmeapi_restfull.model.enums.ResourceType;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -11,24 +16,33 @@ import java.time.LocalDateTime;
 public class Resource {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 150)
     private String title;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 500)
     private String url;
 
     @Column(nullable = false)
-    private String type;
+    @Enumerated(EnumType.STRING)
+    private ResourceType type;
 
     @Column(nullable = false)
-    private String category;
+    @Enumerated(EnumType.STRING)
+    private ResourceCategory category;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    private String filePath; // Ruta del archivo en el servidor o URL si está en almacenamiento externo
+    @Column(nullable = true)
+    private String filePath; // Ruta del archivo en el servidor o URL
 
-    private String fileUrl;
+    @CreationTimestamp
+    @Column(updatable = false, nullable = false)
+    private LocalDateTime createdAt; // Fecha de creación
+
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt; // Fecha de última actualización
 }

@@ -7,10 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ResourceDTO {
-    private String title;
-    private String url;
-    private String type;
-    private String category;
-    private String description;
+public class AdminEventSalesReportDTO {
+    private String nameEvent;
+    private Integer quantity;
 }
